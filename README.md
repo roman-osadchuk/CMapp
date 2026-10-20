@@ -1,0 +1,2 @@
+# CMapp
+CashMineTestApp

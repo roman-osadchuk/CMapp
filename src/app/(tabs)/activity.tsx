@@ -1,21 +1,40 @@
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { api, ActivityItem } from '../../api/client';
+import { deduplicateActivityItems } from '../../lib/activity-logic';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function ActivityScreen() {
-  const { data, isLoading, isError, refetch, isRefetching } = useQuery({
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+    isRefetching,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ['activity'],
-    queryFn: async () => {
-      const res = await api.getActivity();
-      return res?.items || [];
+    queryFn: async ({ pageParam }) => {
+      const res = await api.getActivity(pageParam);
+      return res;
     },
-    // Poll every 5 seconds if there are pending items
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    // Poll every 5 seconds if there are pending items in the first page
     refetchInterval: (query) => {
-      const hasPending = query.state.data?.some(item => item.status === 'pending');
+      const firstPage = (query.state.data as any)?.pages[0];
+      const hasPending = firstPage?.items.some((item: ActivityItem) => item.status === 'pending');
       return hasPending ? 5000 : false;
     },
   });
+
+  const activityItems = useMemo(() => {
+    const allItems = data?.pages.flatMap((page) => page.items) || [];
+    return deduplicateActivityItems(allItems);
+  }, [data?.pages]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -26,6 +45,15 @@ export default function ActivityScreen() {
     }
   };
 
+  const getAmountSign = (type: ActivityItem['type']) => {
+    switch (type) {
+      case 'accrual': return '+';
+      case 'reversal':
+      case 'claim': return '-';
+      default: return '';
+    }
+  };
+
   const renderItem = ({ item }: { item: ActivityItem }) => (
     <View style={styles.card}>
       <View style={styles.iconContainer}>
@@ -33,7 +61,9 @@ export default function ActivityScreen() {
       </View>
       <View style={styles.details}>
         <View style={styles.row}>
-          <Text style={styles.assetText}>{item.amount} {item.asset}</Text>
+          <Text style={[styles.assetText, item.type === 'accrual' ? styles.accrualAmount : styles.reductionAmount]}>
+            {getAmountSign(item.type)}{item.amount} {item.asset}
+          </Text>
           <Text style={[styles.statusText, styles[item.status as keyof typeof styles] || styles.pending]}>
             {item.status.toUpperCase()}
           </Text>
@@ -67,17 +97,30 @@ export default function ActivityScreen() {
   return (
     <View style={styles.container}>
       <FlatList
-        data={data}
+        data={activityItems}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         refreshControl={
           <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#7C3AED" />
         }
+        onEndReached={() => {
+          if (hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
+          }
+        }}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          isFetchingNextPage ? (
+            <View style={styles.footerLoader}>
+              <ActivityIndicator size="small" color="#7C3AED" />
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="receipt-outline" size={64} color="#d1d5db" />
-            <Text style={styles.emptyText}>No claims yet</Text>
+            <Text style={styles.emptyText}>No activity yet</Text>
           </View>
         }
       />
@@ -129,6 +172,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#111827',
   },
+  accrualAmount: {
+    color: '#10b981',
+  },
+  reductionAmount: {
+    color: '#374151',
+  },
   statusText: {
     fontSize: 10,
     fontWeight: 'bold',
@@ -147,6 +196,10 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: '#ef4444',
+  },
+  footerLoader: {
+    paddingVertical: 20,
+    alignItems: 'center',
   },
   emptyContainer: {
     alignItems: 'center',

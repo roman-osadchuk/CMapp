@@ -1,7 +1,8 @@
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
+import { useFocusEffect } from 'expo-router';
 import { api, Balance } from '../../api/client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { calculatePortfolioValue, calculateTotalUsdValue } from '../../lib/amount-logic';
 
 export default function BalancesScreen() {
@@ -15,6 +16,12 @@ export default function BalancesScreen() {
       return res?.items || [];
     },
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   const totalUsd = useMemo(() => {
     if (!Array.isArray(data)) return 0;

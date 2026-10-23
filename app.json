@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "scheme": "acme",
+    "userInterfaceStyle": "automatic",
+    "orientation": "default",
+    "web": {
+      "output": "server"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-splash-screen",
+      "expo-status-bar"
+    ],
+    "name": "CashMineTestApp",
+    "slug": "CashMineTestApp",
+    "ios": {
+      "bundleIdentifier": "com.cashmine.CashMineTestApp"
+    }
+  }
+}

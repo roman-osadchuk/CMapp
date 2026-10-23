@@ -46,5 +46,5 @@ module.exports = {
             projectId: '8562e5d0-32b7-4196-ab78-12c8151baa96',
         },
     },
-    owner: 'roman_osadchuk',
+    owner: 'romanosadchuk94',
 };

@@ -17,19 +17,19 @@ export default function ClaimScreen() {
   });
 
   const { data: options, isLoading: loadingOptions } = useQuery({
-    queryKey: ['claim-options'],
-    queryFn: api.getClaimOptions,
+    queryKey: ['claim-options', selectedAsset],
+    queryFn: () => selectedAsset ? api.getClaimOptions(selectedAsset) : Promise.reject('No asset selected'),
+    enabled: !!selectedAsset,
   });
 
   const selectedBalance = useMemo(() => 
-    balances?.find(b => b.asset === selectedAsset),
+    balances?.items?.find(b => b.asset === selectedAsset),
     [balances, selectedAsset]
   );
 
   const fee = useMemo(() => {
-    const amt = parseFloat(amount);
-    if (isNaN(amt) || !options) return 0;
-    return amt * options.fee_pct;
+    if (!amount || !options) return 0;
+    return parseFloat(options.fee);
   }, [amount, options]);
 
   const receivedAmount = useMemo(() => {
@@ -41,7 +41,7 @@ export default function ClaimScreen() {
   const usdValue = useMemo(() => {
     const amt = parseFloat(amount);
     if (isNaN(amt) || !selectedBalance) return 0;
-    return amt * selectedBalance.price_usd;
+    return amt * parseFloat(selectedBalance.usdPrice);
   }, [amount, selectedBalance]);
 
   const isValid = useMemo(() => {
@@ -49,16 +49,21 @@ export default function ClaimScreen() {
     if (!selectedAsset || isNaN(amt) || amt <= 0 || !selectedBalance || !options) return false;
     
     // Rule: amount <= available
-    if (amt > selectedBalance.available) return false;
+    if (amt > parseFloat(selectedBalance.available)) return false;
     
-    // Rule: amount in USD >= min_claim_usd
-    if (amt * selectedBalance.price_usd < options.min_claim_usd) return false;
+    // Rule: amount >= minAmount
+    if (amt < parseFloat(options.minAmount)) return false;
+
+    // Rule: decimals
+    const parts = amount.split('.');
+    if (parts.length > 1 && parts[1].length > selectedBalance.decimals) return false;
 
     return true;
   }, [amount, selectedAsset, selectedBalance, options]);
 
   const mutation = useMutation({
-    mutationFn: api.createClaim,
+    mutationFn: (vars: { asset: string; amount: string; destinationId: string }) => 
+      api.createClaim(vars, crypto.randomUUID()),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['balances'] });
       queryClient.invalidateQueries({ queryKey: ['activity'] });
@@ -75,8 +80,12 @@ export default function ClaimScreen() {
   });
 
   const handleClaim = () => {
-    if (!isValid || !selectedAsset) return;
-    mutation.mutate({ asset: selectedAsset, amount: parseFloat(amount) });
+    if (!isValid || !selectedAsset || !options) return;
+    mutation.mutate({ 
+      asset: selectedAsset, 
+      amount: amount,
+      destinationId: options.destinations[0].id // Picking first destination as per simplified task
+    });
   };
 
   const handleMax = () => {
@@ -99,7 +108,7 @@ export default function ClaimScreen() {
       
       <Text style={styles.label}>Select Asset</Text>
       <View style={styles.assetGrid}>
-        {balances?.map((item) => (
+        {balances?.items?.map((item) => (
           <TouchableOpacity
             key={item.asset}
             style={[
@@ -118,7 +127,7 @@ export default function ClaimScreen() {
               {item.asset}
             </Text>
             <Text style={styles.assetSubtext}>
-              {item.available.toFixed(4)} avail.
+              {parseFloat(item.available).toFixed(4)} avail.
             </Text>
           </TouchableOpacity>
         ))}
@@ -148,7 +157,7 @@ export default function ClaimScreen() {
           {options && (
             <View style={styles.summary}>
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Fee ({options.fee_pct * 100}%)</Text>
+                <Text style={styles.summaryLabel}>Fee</Text>
                 <Text style={styles.summaryValue}>-{fee.toFixed(6)} {selectedAsset}</Text>
               </View>
               <View style={styles.summaryRow}>
@@ -156,12 +165,12 @@ export default function ClaimScreen() {
                 <Text style={styles.totalValue}>{receivedAmount.toFixed(6)} {selectedAsset}</Text>
               </View>
               
-              {parseFloat(amount) > 0 && usdValue < options.min_claim_usd && (
+              {parseFloat(amount) > 0 && parseFloat(amount) < parseFloat(options.minAmount) && (
                 <Text style={styles.errorText}>
-                  Minimum claim is ${options.min_claim_usd} USD
+                  Minimum claim is {options.minAmount} {selectedAsset}
                 </Text>
               )}
-              {parseFloat(amount) > selectedBalance.available && (
+              {parseFloat(amount) > parseFloat(selectedBalance.available) && (
                 <Text style={styles.errorText}>
                   Insufficient balance
                 </Text>

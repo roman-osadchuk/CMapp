@@ -6,7 +6,10 @@ import { Ionicons } from '@expo/vector-icons';
 export default function ActivityScreen() {
   const { data, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['activity'],
-    queryFn: api.getActivity,
+    queryFn: async () => {
+      const res = await api.getActivity();
+      return res?.items || [];
+    },
     // Poll every 5 seconds if there are pending items
     refetchInterval: (query) => {
       const hasPending = query.state.data?.some(item => item.status === 'pending');
@@ -16,7 +19,8 @@ export default function ActivityScreen() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed': return <Ionicons name="checkmark-circle" size={24} color="#10b981" />;
+      case 'completed': 
+      case 'confirmed': return <Ionicons name="checkmark-circle" size={24} color="#10b981" />;
       case 'failed': return <Ionicons name="close-circle" size={24} color="#ef4444" />;
       default: return <ActivityIndicator size="small" color="#7C3AED" />;
     }
@@ -30,13 +34,16 @@ export default function ActivityScreen() {
       <View style={styles.details}>
         <View style={styles.row}>
           <Text style={styles.assetText}>{item.amount} {item.asset}</Text>
-          <Text style={[styles.statusText, styles[item.status]]}>
+          <Text style={[styles.statusText, styles[item.status as keyof typeof styles] || styles.pending]}>
             {item.status.toUpperCase()}
           </Text>
         </View>
-        <Text style={styles.dateText}>
-          {new Date(item.created_at).toLocaleString()}
-        </Text>
+        <View style={styles.row}>
+          <Text style={styles.typeText}>{item.type.toUpperCase()}</Text>
+          <Text style={styles.dateText}>
+            {new Date(item.createdAt).toLocaleString()}
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -127,8 +134,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   pending: { color: '#7C3AED' },
+  confirmed: { color: '#10b981' },
   completed: { color: '#10b981' },
   failed: { color: '#ef4444' },
+  typeText: {
+    fontSize: 10,
+    color: '#9ca3af',
+  },
   dateText: {
     fontSize: 12,
     color: '#6b7280',

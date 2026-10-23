@@ -10,21 +10,21 @@ export default function BalancesScreen() {
     queryKey: ['balances'],
     queryFn: async () => {
       const res = await api.getBalances();
-      setLastUpdated(new Date());
-      return res;
+      setLastUpdated(new Date(res.asOf));
+      return res?.items || [];
     },
   });
 
   const totalUsd = useMemo(() => {
-    if (!data) return 0;
-    return data.reduce((acc, item) => acc + (item.total * item.price_usd), 0);
+    if (!Array.isArray(data)) return 0;
+    return data.reduce((acc, item) => acc + (parseFloat(item.available || '0') + parseFloat(item.pending || '0') + parseFloat(item.claiming || '0')) * parseFloat(item.usdPrice || '0'), 0);
   }, [data]);
 
   const renderItem = ({ item }: { item: Balance }) => (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <Text style={styles.assetName}>{item.asset}</Text>
-        <Text style={styles.assetPrice}>${item.price_usd.toLocaleString()}</Text>
+        <Text style={styles.assetPrice}>${parseFloat(item.usdPrice || '0').toLocaleString()}</Text>
       </View>
       <View style={styles.balanceRow}>
         <View>
@@ -33,11 +33,18 @@ export default function BalancesScreen() {
         </View>
         <View style={{ alignItems: 'flex-end' }}>
           <Text style={styles.label}>USD Value</Text>
-          <Text style={styles.usdValue}>${(item.total * item.price_usd).toFixed(2)}</Text>
+          <Text style={styles.usdValue}>${((parseFloat(item.available || '0') + parseFloat(item.pending || '0') + parseFloat(item.claiming || '0')) * parseFloat(item.usdPrice || '0')).toFixed(2)}</Text>
         </View>
       </View>
-      {item.pending > 0 && (
-        <Text style={styles.pendingText}>Pending: {item.pending} {item.asset}</Text>
+      {(parseFloat(item.pending || '0') > 0 || parseFloat(item.claiming || '0') > 0) && (
+        <View style={styles.extraInfo}>
+          {parseFloat(item.pending || '0') > 0 && (
+            <Text style={styles.pendingText}>Pending: {item.pending} {item.asset}</Text>
+          )}
+          {parseFloat(item.claiming || '0') > 0 && (
+            <Text style={styles.claimingText}>Claiming: {item.claiming} {item.asset}</Text>
+          )}
+        </View>
       )}
     </View>
   );
@@ -80,7 +87,7 @@ export default function BalancesScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerLabel}>Total Balance</Text>
-        <Text style={styles.totalAmount}>${totalUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+        <Text style={styles.totalAmount}>${(totalUsd || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
         <Text style={styles.freshnessText}>Last updated: {timeAgo}</Text>
       </View>
 
@@ -181,10 +188,18 @@ const styles = StyleSheet.create({
     color: '#111827',
     fontWeight: 'bold',
   },
-  pendingText: {
+  extraInfo: {
     marginTop: 10,
+    gap: 4,
+  },
+  pendingText: {
     fontSize: 12,
     color: '#d97706',
+    fontStyle: 'italic',
+  },
+  claimingText: {
+    fontSize: 12,
+    color: '#7C3AED',
     fontStyle: 'italic',
   },
   errorText: {

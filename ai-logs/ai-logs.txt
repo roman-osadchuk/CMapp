@@ -1,0 +1,135 @@
+[Session 1 - Project Setup]
+1. Initialized Expo project with tabs template.
+2. Added TanStack Query and basic API client.
+3. Prompt: "Create a balance screen showing asset, available, pending, and USD value."
+4. Prompt: "Add a claim screen with a form." -> AI generated a basic form but missed fee logic and decimal validation.
+5. Revised Prompt: "Update the claim screen to include fee calculations from /claim-options and validate amount against asset decimals."
+
+[Session 2 - Logic Implementation]
+1. Implementing amount-logic.ts.
+2. AI Output: suggested using `amount.toFixed(2)` for all displays.
+3. Risk: Crypto assets often need 6-8 decimals. Found out while testing with small BTC/ETH amounts. Fixed to use balance.decimals.
+
+[Session 3 - Finalizing]
+1. AI Suggestion: Use Redux Toolkit for managing the global state of balances and claims.
+2. Rejection: Disagreed. Redux is overkill here. Stuck with TanStack Query and simple React Context for auth.
+
+
+
+----------------
+
+Here I have a documentation: https://task-api.cashmine.io/docs for the task I need to implement. Read it carefully as I need the next implementation based on this explanation. Here is some info for your context: CashMine pays users back part of the trading fees they pay on crypto exchanges. We call this payback. It is live on web, and the iOS/Android app is next. In this task you build a slice of that app: seeing payback balances and claiming them. The money is real for our users, so correctness matters more than polish.
+And here there is a server base url (https://task-api.cashmine.io) Treat it as a real remote server that you call but cannot change.
+And initially what is needed here to be done before the task is: On first open, the app asks for the token (a text field is enough), keeps it in the browser and offers a way to change it. So Do not put the token in your code, your repository or your deployed build.
+Do these steps and later I’ll give you instruction what to do next.
+Implementation Requirements
+Alright, good and here what I actually need you to build: 1 Balances (Home). Show each asset's balances, the total in USD, and how fresh the data is. Include loading, error/retry and refresh states. 2. Claim. The user picks an asset and enters an amount or taps Max. They see the fee and the amount they will receive, then confirm and submit. Afterwards they can follow the claim until it completes or fails. Validate input against the rules in the API documentation.
+So based on these instructions create a bottom tab bar navigation.
+Also ask me a questions if anything is uncluer before implementing it. Don't make up your own decisions.
+Keep in mind that you need to:
+•
+Make sure this project will be available in web after deployment.
+•
+Configure @tanstack/react-query library for basic api requests handling
+User Clarifications
+1.
+No, I don't [have preferred icons]. Please use standart icons.
+2.
+Yes, create a separate tab 'Settings' for it [Change Token button].
+3.
+Let it be on a separate tab [Activity/History] as later we will have a history there for this purpose.
+4.
+Yes, this format [Last updated: X minutes ago] is ok for this.
+5.
+Yes please [Web compatibility].
+API Issue Report
+Alright, good. But all api calls returns 404.
+here is an example:
+curl --url 'https://task-api.cashmine.io/balances'
+-H 'accept: /'
+-H 'accept-language: uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7'
+-H 'content-type: application/json'
+-H 'origin: https://romanosadchuk94-cashmine--2oyx1vkck3.expo.app'
+-H 'priority: u=1, i'
+-H 'referer: https://romanosadchuk94-cashmine--2oyx1vkck3.expo.app/'
+-H 'sec-ch-ua: "Chromium";v="152", "Not?A_Brand";v="24", "Google Chrome";v="152"'
+-H 'sec-ch-ua-mobile: ?0'
+-H 'sec-ch-ua-platform: "macOS"'
+-H 'sec-fetch-dest: empty'
+-H 'sec-fetch-mode: cors'
+-H 'sec-fetch-site: cross-site'
+-H 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36'
+-H 'x-api-token: ct1.xxxxxxxxxxx' (hidden)
+
+
+-----------------------
+
+User: As only I navigate to Claims screen I see an error: entry-ab1259c03aae58…4d7b7884a3a.js:1005 Uncaught TypeError: Cannot read properties of undefined (reading 'find')
+in selectedBalance. Fix this
+Junie (Solution):
+•
+Summary: Fixed a TypeError: Cannot read properties of undefined (reading 'find') that occurred when navigating to the Claims screen. The error was caused by improper optional chaining when accessing balances.items before the data was loaded.
+•
+Changes: Updated src/app/(tabs)/claim.tsx to use balances?.items?.find and balances?.items?.map to safely handle cases where balances or items is not yet available. Improved data fetching robustness in src/app/(tabs)/activity.tsx and src/app/(tabs)/index.tsx by adding null checks and providing default empty arrays for items.
+•
+Verification: Ran lint on the modified files to ensure no syntax errors were introduced. Verified that all accesses to items from API responses are now protected with optional chaining or default values.
+Previous Issue 2
+User: And I have another error: In BalancesScreen in totalUsd -> undefined is not a function
+Junie (Solution):
+•
+Summary: Fixed an undefined is not a function error in BalancesScreen related to totalUsd calculation and rendering. The error was likely caused by data.reduce being called on a non-array value or toLocaleString being called on an unexpected type.
+•
+Changes: Updated src/app/(tabs)/index.tsx to include Array.isArray(data) check before calling reduce in the totalUsd memo. Added safety guards for parseFloat calls by providing default values (|| '0') for potentially missing item properties. Guarded totalUsd.toLocaleString in the render method to handle cases where totalUsd might be unexpectedly falsy.
+•
+Verification: Ran lint on src/app/(tabs)/index.tsx and it passed with no errors. Verified that all number formatting and data processing in the Balances screen are now protected against undefined or malformed data.
+
+
+
+------------------
+
+
+User: Here is another instruction that I need you to check it first and then do the needed implementation: "Show a paginated history of accruals, reversals and claims." So basically there is an Activity screen and I need you to make it happen there. Ask me question if something is unclear.
+Junie:
+Summary
+•
+Implemented a paginated history of accruals, reversals, and claims on the Activity screen.
+Changes
+•
+Refactored ActivityScreen to use useInfiniteQuery from TanStack Query for efficient pagination.
+•
+Updated FlatList to handle infinite scrolling using onEndReached and a loading footer.
+•
+Added visual indicators for different activity types: accruals now show a + sign and green color, while reversals and claims show a - sign.
+•
+Generalized the empty state message from "No claims yet" to "No activity yet" to reflect all transaction types.
+•
+Maintained the polling logic to automatically refresh the first page if there are pending transactions.
+Verification
+•
+Verified code correctness through manual review and linting.
+•
+Confirmed that api.getActivity and the ActivityItem type already supported the necessary data for pagination and type differentiation.
+•
+Ensured consistency with the existing design system and TanStack Query patterns used in the project.
+User: I just noticed an error there: encountered two children with the same key after the implementation. Fit it.
+Junie:
+Summary
+•
+Fixed the "encountered two children with the same key" error in the Activity screen caused by duplicate IDs during pagination.
+Changes
+•
+Created src/lib/activity-logic.ts with a deduplicateActivityItems utility to safely handle shifting items or unstable cursors in infinite scrolling.
+•
+Refactored ActivityScreen to use useMemo for de-duplicating activity items before rendering them in the FlatList.
+•
+Added Jest unit tests for the de-duplication logic to prevent regressions and ensure correct item ordering.
+•
+Updated NOTES.md to reflect the addition of unit tests for core logic.
+Verification
+•
+Ran npm test and confirmed all 23 tests pass, including the new de-duplication tests.
+•
+Verified ActivityScreen with lint and confirmed no errors or warnings.
+•
+Manually reviewed the logic to ensure it preserves the order of items while removing duplicates.
+

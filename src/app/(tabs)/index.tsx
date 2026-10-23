@@ -2,6 +2,7 @@ import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl, To
 import { useQuery } from '@tanstack/react-query';
 import { api, Balance } from '../../api/client';
 import { useState, useEffect, useMemo } from 'react';
+import { calculatePortfolioValue, calculateTotalUsdValue } from '../../lib/amount-logic';
 
 export default function BalancesScreen() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -17,7 +18,7 @@ export default function BalancesScreen() {
 
   const totalUsd = useMemo(() => {
     if (!Array.isArray(data)) return 0;
-    return data.reduce((acc, item) => acc + (parseFloat(item.available || '0') + parseFloat(item.pending || '0') + parseFloat(item.claiming || '0')) * parseFloat(item.usdPrice || '0'), 0);
+    return calculatePortfolioValue(data);
   }, [data]);
 
   const renderItem = ({ item }: { item: Balance }) => (
@@ -33,7 +34,7 @@ export default function BalancesScreen() {
         </View>
         <View style={{ alignItems: 'flex-end' }}>
           <Text style={styles.label}>USD Value</Text>
-          <Text style={styles.usdValue}>${((parseFloat(item.available || '0') + parseFloat(item.pending || '0') + parseFloat(item.claiming || '0')) * parseFloat(item.usdPrice || '0')).toFixed(2)}</Text>
+          <Text style={styles.usdValue}>${calculateTotalUsdValue(item).toFixed(2)}</Text>
         </View>
       </View>
       {(parseFloat(item.pending || '0') > 0 || parseFloat(item.claiming || '0') > 0) && (

@@ -3,6 +3,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, Balance, ClaimOptions } from '../../api/client';
 import { useState, useMemo } from 'react';
 import { useRouter } from 'expo-router';
+import { 
+  calculateFee, 
+  calculateReceivedAmount, 
+  calculateUsdValue, 
+  validateAmount 
+} from '../../lib/amount-logic';
 
 export default function ClaimScreen() {
   const queryClient = useQueryClient();
@@ -27,39 +33,25 @@ export default function ClaimScreen() {
     [balances, selectedAsset]
   );
 
-  const fee = useMemo(() => {
-    if (!amount || !options) return 0;
-    return parseFloat(options.fee);
-  }, [amount, options]);
+  const fee = useMemo(() => 
+    calculateFee(amount, options),
+    [amount, options]
+  );
 
-  const receivedAmount = useMemo(() => {
-    const amt = parseFloat(amount);
-    if (isNaN(amt)) return 0;
-    return amt - fee;
-  }, [amount, fee]);
+  const receivedAmount = useMemo(() => 
+    calculateReceivedAmount(amount, fee),
+    [amount, fee]
+  );
 
-  const usdValue = useMemo(() => {
-    const amt = parseFloat(amount);
-    if (isNaN(amt) || !selectedBalance) return 0;
-    return amt * parseFloat(selectedBalance.usdPrice);
-  }, [amount, selectedBalance]);
+  const usdValue = useMemo(() => 
+    calculateUsdValue(amount, selectedBalance || null),
+    [amount, selectedBalance]
+  );
 
-  const isValid = useMemo(() => {
-    const amt = parseFloat(amount);
-    if (!selectedAsset || isNaN(amt) || amt <= 0 || !selectedBalance || !options) return false;
-    
-    // Rule: amount <= available
-    if (amt > parseFloat(selectedBalance.available)) return false;
-    
-    // Rule: amount >= minAmount
-    if (amt < parseFloat(options.minAmount)) return false;
-
-    // Rule: decimals
-    const parts = amount.split('.');
-    if (parts.length > 1 && parts[1].length > selectedBalance.decimals) return false;
-
-    return true;
-  }, [amount, selectedAsset, selectedBalance, options]);
+  const isValid = useMemo(() => 
+    validateAmount(amount, selectedAsset, selectedBalance || null, options || null).isValid,
+    [amount, selectedAsset, selectedBalance, options]
+  );
 
   const mutation = useMutation({
     mutationFn: (vars: { asset: string; amount: string; destinationId: string }) => 

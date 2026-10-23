@@ -7,7 +7,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "deploy": "npx expo export -p web && npx eas-cli@latest deploy"
+    "deploy": "npx expo export -p web && npx eas-cli@latest deploy",
+    "test": "jest"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
@@ -28,7 +29,10 @@
     "zod": "^3.25.67"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@types/react": "~19.2.14",
+    "jest": "^30.5.2",
+    "ts-jest": "^29.4.15",
     "typescript": "~6.0.3"
   },
   "private": true
